@@ -1,6 +1,6 @@
 services:
   lb-upload-server:
-    image: ghcr.io/noflm/lb-upload-standalon:latest
+    image: ghcr.io/noflm/lb-upload-standalon:main
     container_name: lb-upload-standalone
     ports:
       - "30121:30121"
