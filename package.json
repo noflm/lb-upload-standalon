@@ -10,7 +10,11 @@
 		"docker:build": "docker build -t lb-upload-standalone .",
 		"docker:run": "docker run -p 30121:30121 -v ./uploads:/app/uploads lb-upload-standalone",
 		"docker:up": "docker-compose up -d",
-		"docker:down": "docker-compose down"
+		"docker:down": "docker-compose down",
+		"docker:dev": "docker-compose -f docker-compose.dev.yml up -d",
+		"docker:dev-down": "docker-compose -f docker-compose.dev.yml down",
+		"docker:prod": "docker-compose up -d",
+		"docker:prod-down": "docker-compose down"
 	},
 	"keywords": ["file-upload", "bun", "hono", "docker", "api", "server", "FiveM"],
 	"author": "noflm",

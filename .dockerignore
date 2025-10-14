@@ -3,11 +3,15 @@ npm-debug.log
 dist
 .git
 .gitignore
-README.md
 .env
+.env.*
 .nyc_output
 coverage
 .DS_Store
 *.log
 uploads/*
 !uploads/.gitkeep
+docker-compose.yml
+docker-compose.dev.yml
+.github
+logs

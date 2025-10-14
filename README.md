@@ -9,15 +9,28 @@ A standalone file upload server built with Hono that works both as a FiveM resou
 
 ### クイックスタート
 
+#### 本番環境（GitHubビルド済みイメージ使用）
+
 1. リポジトリをクローンまたはダウンロード
 ```bash
-git clone <repository-url>
-cd lb-upload-standalone
+git clone https://github.com/noflm/lb-upload-standalon.git
+cd lb-upload-standalon
 ```
 
-2. Docker Compose でサーバーを起動
+2. Docker Compose でサーバーを起動（GitHubビルド済みイメージ）
 ```bash
 docker-compose up -d
+# または
+npm run docker:prod
+```
+
+#### 開発環境（ローカルビルド）
+
+```bash
+# 開発用docker-composeを使用（ローカルビルド + デバッグモード）
+docker-compose -f docker-compose.dev.yml up -d
+# または
+npm run docker:dev
 ```
 
 3. サーバーが起動していることを確認
@@ -84,12 +97,23 @@ docker-compose logs -f lb-upload-server
 ### サーバーの停止
 
 ```bash
+# 本番環境
 docker-compose down
+
+# 開発環境
+docker-compose -f docker-compose.dev.yml down
 ```
 
-## FiveM環境での実行
+### Dockerイメージについて
 
-FiveM環境では、従来通りリソースとして動作します。
+#### GitHubビルド済みイメージ（推奨）
+- イメージ: `ghcr.io/noflm/lb-upload-standalon:latest`
+- 自動ビルド: GitHub Actionsで自動的にビルド・公開
+- 利点: ダウンロードが高速、一貫性のあるビルド環境
+
+#### ローカルビルド
+- 開発やカスタマイズが必要な場合に使用
+- `docker-compose.dev.yml`でローカルビルドを実行
 
 ## 開発
 
