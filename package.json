@@ -1,0 +1,38 @@
+{
+	"name": "lb-upload-standalone",
+	"version": "1.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "bun run server.ts",
+		"start": "bun run server.ts",
+		"build": "esbuild server.ts --bundle --platform=node --target=node14 --outfile=dist/index.js --external:@babel/preset-typescript/package.json --external:@babel/plugin-transform-modules-commonjs --external:@babel/plugin-proposal-export-namespace-from",
+		"watch": "pnpm build --watch",
+		"docker:build": "docker build -t lb-upload-standalone .",
+		"docker:run": "docker run -p 30121:30121 -v ./uploads:/app/uploads lb-upload-standalone",
+		"docker:up": "docker-compose up -d",
+		"docker:down": "docker-compose down"
+	},
+	"keywords": [],
+	"author": "noflm",
+	"license": "ISC",
+	"dependencies": {
+		"@hono/node-server": "^1.19.5",
+		"hono": "^4.9.12",
+		"mime": "^4.1.0",
+		"node-fetch": "^3.3.2",
+		"typescript": "^5.9.3",
+		"uuid": "^9.0.1"
+	},
+	"devDependencies": {
+		"@types/node": "^20.19.21",
+		"@types/uuid": "^9.0.8"
+	},
+	"prettier": {
+		"tabWidth": 4,
+		"singleQuote": true,
+		"printWidth": 140,
+		"semi": false,
+		"quoteProps": "preserve",
+		"trailingComma": "none"
+	}
+}

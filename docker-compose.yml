@@ -1,0 +1,30 @@
+services:
+  lb-upload-server:
+    build: .
+    container_name: lb-upload-standalone
+    ports:
+      - "30121:30121"
+    volumes:
+      # アップロードファイルを永続化
+      - ./uploads:/app/uploads
+      # ログを確認できるように（オプション）
+      - ./logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      - PORT=30121
+      - BIND_ADDRESS=0.0.0.0
+      - UPLOAD_PATH=./uploads
+      - MAX_FILE_SIZE_MB=50
+      - DEBUG=false
+      - CORS_MAX_AGE=86400
+      # - DISCORD_WEBHOOK=your_webhook_url_here
+      # - API_KEY=your_api_key_here
+      # - CORS_ORIGIN=http://localhost:3000,https://yourdomain.com
+    restart: unless-stopped
+    # ヘルスチェック
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:30121/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
