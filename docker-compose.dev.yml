@@ -12,16 +12,16 @@ services:
       # ソースコードをマウント（開発用）
       - ./server.ts:/app/server.ts
     environment:
-      - NODE_ENV=development
-      - PORT=30121
-      - BIND_ADDRESS=0.0.0.0
-      - UPLOAD_PATH=./uploads
-      - MAX_FILE_SIZE_MB=50
-      - DEBUG=true
-      - CORS_MAX_AGE=86400
-      # - DISCORD_WEBHOOK=your_webhook_url_here
-      # - API_KEY=your_api_key_here
-      # - CORS_ORIGIN=http://localhost:3000,https://yourdomain.com
+      NODE_ENV: "production"
+      PORT: 30121
+      BIND_ADDRESS: "0.0.0.0"
+      UPLOAD_PATH: "./uploads"
+      MAX_FILE_SIZE_MB: 50
+      DEBUG: false
+      CORS_MAX_AGE: 86400
+      # DISCORD_WEBHOOK: "your_webhook_url_here"
+      # API_KEY: "your_api_key_here"
+      # CORS_ORIGIN: "http://localhost:3000,https://yourdomain.com"
     restart: unless-stopped
     # ヘルスチェック
     healthcheck:
