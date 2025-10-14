@@ -262,7 +262,6 @@ app.post('/upload/', async (c: Context) => {
 
         // Discord webhookを送信（バックグラウンドで実行）
         if (config.DiscordWebhook) {
-            let webhookContent = `📁 File uploaded: ${url}`
             let embedFields = [
                 {
                     name: "File Name",
@@ -288,7 +287,6 @@ app.post('/upload/', async (c: Context) => {
 
             // プレイヤーメタデータがある場合は追加
             if (playerMetadata) {
-                webhookContent += `\n👤 **Uploaded by:** ${playerMetadata.name} (${playerMetadata.identifier})`
                 embedFields.push(
                     {
                         name: "Player(ID)",
@@ -298,17 +296,21 @@ app.post('/upload/', async (c: Context) => {
                 )
             }
 
-            const webhookPayload = {
+            const embedWebhookPayload = {
                 username: 'LB Phone - Upload',
                 avatar_url: 'https://github.com/lbphone.png',
-                content: webhookContent,
                 embeds: [{
-                    title: "📤 New File Upload",
+                    title: "📁 File Upload",
                     fields: embedFields,
                     url: url,
                     color: playerMetadata ? 0x00ff00 : 0x0099ff, // 緑（プレイヤー情報あり）または青
                     timestamp: new Date().toISOString(),
                 }]
+            }
+            const urlWebhookPayload = {
+                username: 'LB Phone - Upload',
+                avatar_url: 'https://github.com/lbphone.png',
+                content: `${url}`
             }
 
             // Fire and forget - don't await
@@ -317,7 +319,14 @@ app.post('/upload/', async (c: Context) => {
                     'Content-Type': 'application/json'
                 }),
                 method: 'POST',
-                body: JSON.stringify(webhookPayload)
+                body: JSON.stringify(embedWebhookPayload)
+            }).catch((err: any) => console.error('Discord webhook failed:', err))
+            fetch(config.DiscordWebhook, {
+                headers: new Headers({
+                    'Content-Type': 'application/json'
+                }),
+                method: 'POST',
+                body: JSON.stringify(urlWebhookPayload)
             }).catch((err: any) => console.error('Discord webhook failed:', err))
         }
 
