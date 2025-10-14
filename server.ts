@@ -135,6 +135,44 @@ if (!existsSync(uploadPath)) {
     mkdirSync(uploadPath, { recursive: true })
 }
 
+// 日付フォルダを取得する関数
+function getDateFolder(): string {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+}
+
+// 日付フォルダのパスを作成し、存在しない場合は作成する関数
+function ensureDateFolder(basePath: string, dateFolder: string): string {
+    const fullPath = path.join(basePath, dateFolder)
+    if (!existsSync(fullPath)) {
+        mkdirSync(fullPath, { recursive: true })
+    }
+    return fullPath
+}
+
+// プレイヤーメタデータを取得する関数
+function getPlayerMetadata(c: Context): { identifier: string, name: string } | null {
+    const playerMetadata = c.req.header('player-metadata')
+    if (!playerMetadata) return null
+    
+    try {
+        const parsed = JSON.parse(playerMetadata)
+        if (parsed.identifier && parsed.name) {
+            return {
+                identifier: parsed.identifier,
+                name: parsed.name
+            }
+        }
+    } catch (error) {
+        console.error('Failed to parse player metadata:', error)
+    }
+    
+    return null
+}
+
 // ヘルスチェックエンドポイント
 app.get('/health', (c: Context) => {
     return c.json({ status: 'ok', timestamp: new Date().toISOString() })
@@ -190,29 +228,85 @@ app.post('/upload', async (c: Context) => {
             baseUrl = `${protocol}://${host}`
         }
 
+        // プレイヤーメタデータを取得
+        const playerMetadata = getPlayerMetadata(c)
+        
+        // 日付フォルダを取得・作成
+        const dateFolder = getDateFolder()
+        const dateFolderPath = ensureDateFolder(uploadPath, dateFolder)
+        
         const filename = `${uuid()}.${extension}`
-        const link = `${baseUrl}/uploads/${filename}`
+        const relativePath = `${dateFolder}/${filename}`
+        const url = `${baseUrl}/uploads/${relativePath}`
 
-        // ファイルを保存
-        await writeFile(path.join(uploadPath, filename), buffer)
+        // ファイルを保存（日付フォルダ内）
+        await writeFile(path.join(dateFolderPath, filename), buffer)
+
+        // プレイヤーメタデータがある場合は、メタデータファイルも保存
+        if (playerMetadata) {
+            const metadataFilename = `${filename}.meta.json`
+            const metadataContent = {
+                uploadedAt: new Date().toISOString(),
+                originalFilename: file.name,
+                playerMetadata,
+                fileSize: buffer.length,
+                mimeType: mimetype,
+                dateFolder
+            }
+            
+            await writeFile(
+                path.join(dateFolderPath, metadataFilename), 
+                JSON.stringify(metadataContent, null, 2)
+            )
+        }
 
         // Discord webhookを送信（バックグラウンドで実行）
         if (config.DiscordWebhook) {
+            let webhookContent = `📁 File uploaded: ${url}`
+            let embedDescription = `**File:** ${file.name}\n**Size:** ${(buffer.length / (1024 * 1024)).toFixed(2)} MB\n**Type:** ${mimetype}`
+            
+            // プレイヤーメタデータがある場合は追加
+            if (playerMetadata) {
+                webhookContent += `\n👤 **Uploaded by:** ${playerMetadata.name} (${playerMetadata.identifier})`
+                embedDescription += `\n**Player:** ${playerMetadata.name}\n**ID:** ${playerMetadata.identifier}`
+            }
+
+            const webhookPayload = {
+                username: 'LB Phone - Upload',
+                avatar_url: 'https://github.com/lbphone.png',
+                content: webhookContent,
+                embeds: [{
+                    title: "📤 New File Upload",
+                    description: embedDescription,
+                    url: url,
+                    color: playerMetadata ? 0x00ff00 : 0x0099ff, // 緑（プレイヤー情報あり）または青
+                    timestamp: new Date().toISOString(),
+                    footer: {
+                        text: `Date Folder: ${dateFolder}`
+                    }
+                }]
+            }
+
             // Fire and forget - don't await
             fetch(config.DiscordWebhook, {
                 headers: new Headers({
                     'Content-Type': 'application/json'
                 }),
                 method: 'POST',
-                body: JSON.stringify({
-                    username: 'LB Phone - Upload',
-                    avatar_url: 'https://github.com/lbphone.png',
-                    content: `${link}`
-                })
+                body: JSON.stringify(webhookPayload)
             }).catch((err: any) => console.error('Discord webhook failed:', err))
         }
 
-        return c.json({ filename, link })
+        return c.json({ 
+            success: true,
+            filename,
+            url,
+            dateFolder,
+            relativePath,
+            size: processedBuffer.length,
+            type: mimetype,
+            playerMetadata: playerMetadata || undefined
+        })
 
     } catch (error) {
         console.error('Upload error:', error)
@@ -220,7 +314,55 @@ app.post('/upload', async (c: Context) => {
     }
 })
 
-// 静的ファイル配信
+// 静的ファイル配信（日付フォルダ対応）
+app.get('/uploads/:dateFolder/:file', async (c: Context) => {
+    const dateFolder = c.req.param('dateFolder')
+    const filename = c.req.param('file')
+    const filePath = path.join(uploadPath, dateFolder, filename)
+    
+    try {
+        if (!existsSync(filePath)) {
+            return c.json({ error: 'File not found' }, 404)
+        }
+        
+        const fileBuffer = await readFile(filePath)
+        const mimeType = mime.getType(filePath) || 'application/octet-stream'
+        
+        return new Response(new Uint8Array(fileBuffer), {
+            status: 200,
+            headers: {
+                'Cache-Control': 'public, max-age=15724800, immutable',
+                'Content-Type': mimeType,
+            }
+        })
+    } catch (error) {
+        console.error('File serve error:', error)
+        return c.json({ error: 'Internal server error' }, 500)
+    }
+})
+
+// メタデータファイル取得エンドポイント
+app.get('/uploads/:dateFolder/:file/metadata', async (c: Context) => {
+    const dateFolder = c.req.param('dateFolder')
+    const filename = c.req.param('file')
+    const metadataPath = path.join(uploadPath, dateFolder, `${filename}.meta.json`)
+    
+    try {
+        if (!existsSync(metadataPath)) {
+            return c.json({ error: 'Metadata not found' }, 404)
+        }
+        
+        const metadataContent = await readFile(metadataPath, 'utf-8')
+        const metadata = JSON.parse(metadataContent)
+        
+        return c.json(metadata)
+    } catch (error) {
+        console.error('Metadata read error:', error)
+        return c.json({ error: 'Internal server error' }, 500)
+    }
+})
+
+// 後方互換性のため、日付フォルダなしのパスも対応（既存ファイル用）
 app.get('/uploads/:file', async (c: Context) => {
     const filename = c.req.param('file')
     const filePath = path.join(uploadPath, filename)
