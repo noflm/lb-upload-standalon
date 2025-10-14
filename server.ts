@@ -303,7 +303,7 @@ app.post('/upload/', async (c: Context) => {
             url,
             dateFolder,
             relativePath,
-            size: processedBuffer.length,
+            size: buffer.length,
             type: mimetype,
             playerMetadata: playerMetadata || undefined
         })
