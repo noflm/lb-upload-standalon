@@ -1,6 +1,11 @@
 # Bunランタイムを使用
 FROM oven/bun:canary-alpine
 
+# メタデータラベル
+LABEL maintainer="noflm"
+LABEL license="MIT"
+LABEL description="Standalone file upload server with Bun runtime"
+
 # 作業ディレクトリを設定
 WORKDIR /app
 

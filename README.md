@@ -112,4 +112,4 @@ bun run build
 
 ## ライセンス
 
-ISC
+MIT License - 詳細は[LICENSE](LICENSE)ファイルを参照してください。

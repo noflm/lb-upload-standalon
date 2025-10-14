@@ -12,9 +12,17 @@
 		"docker:up": "docker-compose up -d",
 		"docker:down": "docker-compose down"
 	},
-	"keywords": [],
+	"keywords": ["file-upload", "bun", "hono", "docker", "api", "server", "FiveM"],
 	"author": "noflm",
-	"license": "ISC",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/noflm/lb-upload-standalon.git"
+	},
+	"bugs": {
+		"url": "https://github.com/noflm/lb-upload-standalon/issues"
+	},
+	"homepage": "https://github.com/noflm/lb-upload-standalon#readme",
 	"dependencies": {
 		"@hono/node-server": "^1.19.5",
 		"hono": "^4.9.12",
