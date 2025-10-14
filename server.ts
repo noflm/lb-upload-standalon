@@ -263,12 +263,39 @@ app.post('/upload/', async (c: Context) => {
         // Discord webhookを送信（バックグラウンドで実行）
         if (config.DiscordWebhook) {
             let webhookContent = `📁 File uploaded: ${url}`
-            let embedDescription = `**File:** ${file.name}\n**Size:** ${(buffer.length / (1024 * 1024)).toFixed(2)} MB\n**Type:** ${mimetype}`
-            
+            let embedFields = [
+                {
+                    name: "File Name",
+                    value: filename,
+                    inline: false,
+                },
+                {
+                    name: "Date Folder",
+                    value: dateFolder,
+                    inline: false,
+                },
+                {
+                    name: "File Size",
+                    value: `${(buffer.length / (1024 * 1024)).toFixed(2)} MB`,
+                    inline: false,
+                },
+                {
+                    name: "MIME Type",
+                    value: mimetype,
+                    inline: false,
+                },
+            ]
+
             // プレイヤーメタデータがある場合は追加
             if (playerMetadata) {
                 webhookContent += `\n👤 **Uploaded by:** ${playerMetadata.name} (${playerMetadata.identifier})`
-                embedDescription += `\n**Player:** ${playerMetadata.name}\n**ID:** ${playerMetadata.identifier}`
+                embedFields.push(
+                    {
+                        name: "Player(ID)",
+                        value: `${playerMetadata.name} (${playerMetadata.identifier})`,
+                        inline: false,
+                    }
+                )
             }
 
             const webhookPayload = {
@@ -277,13 +304,10 @@ app.post('/upload/', async (c: Context) => {
                 content: webhookContent,
                 embeds: [{
                     title: "📤 New File Upload",
-                    description: embedDescription,
+                    fields: embedFields,
                     url: url,
                     color: playerMetadata ? 0x00ff00 : 0x0099ff, // 緑（プレイヤー情報あり）または青
                     timestamp: new Date().toISOString(),
-                    footer: {
-                        text: `Date Folder: ${dateFolder}`
-                    }
                 }]
             }
 
