@@ -42,7 +42,8 @@ curl http://localhost:30121/health
 
 - `GET /health` - ヘルスチェック
 - `POST /upload` - ファイルアップロード
-- `GET /uploads/:filename` - アップロードしたファイルの取得
+- `GET /uploads/:dateFolder/:filename` - アップロードしたファイルの取得（日付フォルダ対応）
+- `GET /uploads/:filename` - 従来形式（後方互換性）
 
 ### ファイルアップロード例
 
@@ -50,6 +51,28 @@ curl http://localhost:30121/health
 curl -X POST \
   -F "file=@example.jpg" \
   http://localhost:30121/upload
+```
+
+### 日付フォルダ機能
+
+アップロードされたファイルは自動的に日付フォルダに整理されます：
+
+- **フォルダ形式**: `YYYY-MM-DD` (例: `2025-10-14`)
+- **URL例**: `http://localhost:30121/uploads/2025-10-14/ab9c2b65-a053-412c-b1d1-b1c241c14591.webp`
+- **自動作成**: 日付フォルダは必要に応じて自動生成されます
+
+### アップロード成功時のレスポンス例
+
+```json
+{
+  "success": true,
+  "filename": "ab9c2b65-a053-412c-b1d1-b1c241c14591.webp",
+  "url": "http://localhost:30121/uploads/2025-10-14/ab9c2b65-a053-412c-b1d1-b1c241c14591.webp",
+  "dateFolder": "2025-10-14",
+  "relativePath": "2025-10-14/ab9c2b65-a053-412c-b1d1-b1c241c14591.webp",
+  "size": 12345,
+  "type": "image/webp"
+}
 ```
 
 ### 設定
