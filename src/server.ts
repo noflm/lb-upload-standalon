@@ -356,8 +356,8 @@ app.post('/upload/', async (c: Context) => {
     }
 })
 
-// 静的ファイル配信（Bunの最適化されたserveStaticを使用）
-app.use('/uploads/*', serveStatic({ 
+// 静的ファイル配信
+app.get('/uploads/*', serveStatic({ 
     root: uploadPath,
     // Bunの最適化: ゼロコピーとメモリマッピングを活用
     rewriteRequestPath: (path: string) => {
@@ -369,7 +369,7 @@ app.use('/uploads/*', serveStatic({
     }
 }))
 
-// 静的ファイル用のHTTPヘッダー最適化ミドルウェア
+// 静的ファイル用のHTTPヘッダー
 app.use('/uploads/*', async (c: Context, next) => {
     await next()
     // レスポンスヘッダーを最適化
