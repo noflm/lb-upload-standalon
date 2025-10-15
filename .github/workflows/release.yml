@@ -1,0 +1,82 @@
+name: Bun App Build and Release
+
+on:
+  push:
+    branches:
+      - main # Trigger on push to the main branch
+  release:
+    types: [created] # Trigger on new GitHub release creation
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Or another suitable runner environment
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2 # Use the official setup-bun action
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build application for Linux x64
+        run: bun run build:linux-x64
+      
+      - name: Build application for Linux x64 Baseline
+        run: bun run build:linux-x64-baseline
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bun-app-build
+          path: ./dist
+
+  release:
+    if: github.event_name == 'release' && github.event.action == 'created' # Only run on release creation
+    needs: build # This job depends on the 'build' job completing successfully
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: lb-upload-standalone-linux
+            asset_name: lb-upload-standalone-linux
+          - os: ubuntu-latest
+            artifact_name: lb-upload-standalone-linux-baseline
+            asset_name: lb-upload-standalone-linux-baseline
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: bun-app-build
+          path: ./dist
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: svenstaro/upload-release-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ./dist/${{ matrix.artifact_name }}
+          asset_name: ${{ matrix.asset_name }}
+          tag: ${{ github.ref }}
