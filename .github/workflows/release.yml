@@ -9,6 +9,11 @@ on:
   release:
     types: [created] # Trigger on new GitHub release creation
 
+# Set permissions for GitHub token
+permissions:
+  contents: write
+  pull-requests: read
+
 jobs:
   build:
     runs-on: ubuntu-latest # Or another suitable runner environment
@@ -41,6 +46,10 @@ jobs:
     if: (github.event_name == 'release' && github.event.action == 'created') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
     needs: build # This job depends on the 'build' job completing successfully
     runs-on: ubuntu-latest
+    
+    # Explicitly set permissions for this job
+    permissions:
+      contents: write
 
     strategy:
       matrix:
