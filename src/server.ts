@@ -263,7 +263,7 @@ app.post('/upload/', async (c: Context) => {
         // audio/oggの場合はバイパスしてそのまま使用
         if (clientMimeType === 'audio/ogg') {
             actualMimeType = 'audio/ogg'
-            extension = 'ogg'
+            extension = 'opus'
             console.log(`Bypassing file analysis for audio/ogg - keeping original type`)
         } else {
             // ファイル内容を解析して正確なMIMEタイプと拡張子を判定
