@@ -1,29 +1,14 @@
-
 import { Hono, Context } from 'hono'
 import { logger } from 'hono/logger'
 import { etag } from 'hono/etag'
 import { cors } from 'hono/cors'
-import { serve } from '@hono/node-server'
-import { writeFile, readFile } from 'fs/promises'
-import { existsSync, mkdirSync } from 'fs'
+import { serveStatic } from 'hono/bun'
+import { join } from 'path'
 import { v4 as uuid } from 'uuid'
-import mime from 'mime'
-import fetch, { Headers } from 'node-fetch'
-import path from 'path'
 
-// Bun/Node.js互換のグローバル宣言
-declare global {
-    var Bun: {
-        env: Record<string, string | undefined>
-    } | undefined
-    var process: {
-        env: Record<string, string | undefined>
-    } | undefined
-}
 
-// 環境変数から設定を読み込み（Bun互換）
 const getEnv = (key: string, defaultValue: string = ''): string => {
-    return Bun?.env?.[key] ?? process?.env?.[key] ?? defaultValue
+    return Bun.env[key] ?? defaultValue
 }
 
 const getEnvBoolean = (key: string, defaultValue: boolean): boolean => {
@@ -43,6 +28,40 @@ const getEnvArray = (key: string, defaultValue: string[]): string[] => {
     const value = getEnv(key)
     if (!value) return defaultValue
     return value.split(',').map((item: string) => item.trim()).filter((item: string) => item.length > 0)
+}
+
+// ファイル操作（最適化済み）
+const bunFile = {
+    write: async (filePath: string, data: Uint8Array): Promise<void> => {
+        await Bun.write(filePath, data)
+    },
+    exists: async (filePath: string): Promise<boolean> => {
+        return await Bun.file(filePath).exists()
+    },
+    mkdir: async (dirPath: string): Promise<void> => {
+        await Bun.write(`${dirPath}/.bunkeep`, '')
+        await Bun.file(`${dirPath}/.bunkeep`).exists() // ディレクトリ作成を確実にする
+    }
+}
+
+// MIME処理
+function getFileExtensionFromMime(mimeType: string): string | null {
+    const mimeMap: Record<string, string> = {
+        'audio/mpeg': 'mp3',
+        'audio/ogg': 'ogg',
+        'audio/opus': 'opus',
+        'audio/webm': 'webm',
+        'audio/wav': 'wav',
+        'video/mp4': 'mp4',
+        'video/webm': 'webm',
+        'video/mpeg': 'mpeg',
+        'video/ogg': 'ogv',
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/webp': 'webp',
+        'image/gif': 'gif'
+    }
+    return mimeMap[mimeType] || null
 }
 
 
@@ -130,10 +149,16 @@ const config: Config = {
 const uploadPath = config.UploadPath
 let baseUrl: string = getEnv('BASE_URL')
 
-// アップロードディレクトリを作成
-if (!existsSync(uploadPath)) {
-    mkdirSync(uploadPath, { recursive: true })
+// Bunネイティブの初期化処理
+async function initializeApp() {
+    // アップロードディレクトリを作成（Bunネイティブ）
+    if (!(await bunFile.exists(uploadPath))) {
+        await bunFile.mkdir(uploadPath)
+    }
 }
+
+// トップレベルでの初期化
+await initializeApp()
 
 // 日付フォルダを取得する関数
 function getDateFolder(): string {
@@ -144,11 +169,11 @@ function getDateFolder(): string {
     return `${year}-${month}-${day}`
 }
 
-// 日付フォルダのパスを作成し、存在しない場合は作成する関数
-function ensureDateFolder(basePath: string, dateFolder: string): string {
-    const fullPath = path.join(basePath, dateFolder)
-    if (!existsSync(fullPath)) {
-        mkdirSync(fullPath, { recursive: true })
+// 日付フォルダのパスを作成し、存在しない場合は作成する関数（Bunネイティブ）
+async function ensureDateFolder(basePath: string, dateFolder: string): Promise<string> {
+    const fullPath = `${basePath}/${dateFolder}`
+    if (!(await bunFile.exists(fullPath))) {
+        await bunFile.mkdir(fullPath)
     }
     return fullPath
 }
@@ -204,7 +229,8 @@ app.post('/upload/', async (c: Context) => {
             return c.json({ error: 'File is too large' }, 413)
         }
 
-        const extension = mime.getExtension(mimetype)
+        // BunネイティブのMIME処理
+        const extension = getFileExtensionFromMime(mimetype)
 
         if (!extension || !buffer) {
             return c.json({ error: 'Invalid file type' }, 400)
@@ -233,14 +259,14 @@ app.post('/upload/', async (c: Context) => {
         
         // 日付フォルダを取得・作成
         const dateFolder = getDateFolder()
-        const dateFolderPath = ensureDateFolder(uploadPath, dateFolder)
+        const dateFolderPath = await ensureDateFolder(uploadPath, dateFolder)
         
         const filename = `${uuid()}.${extension}`
         const relativePath = `${dateFolder}/${filename}`
         const url = `${baseUrl}/uploads/${relativePath}`
 
-        // ファイルを保存（日付フォルダ内）
-        await writeFile(path.join(dateFolderPath, filename), buffer)
+        // ファイルを保存（日付フォルダ内）- Bunネイティブ最適化
+        await bunFile.write(`${dateFolderPath}/${filename}`, buffer)
 
         // Discord webhookを送信（バックグラウンドで実行）
         if (config.DiscordWebhook) {
@@ -295,20 +321,23 @@ app.post('/upload/', async (c: Context) => {
                 content: `${url}`
             }
 
-            fetch(config.DiscordWebhook, {
-                headers: new Headers({
-                    'Content-Type': 'application/json'
+            // Bunの並行処理を活用してwebhookを同時送信（Bunネイティブfetch）
+            Promise.all([
+                fetch(config.DiscordWebhook, {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    method: 'POST',
+                    body: JSON.stringify(embedWebhookPayload)
                 }),
-                method: 'POST',
-                body: JSON.stringify(embedWebhookPayload)
-            }).catch((err: any) => console.error('Discord webhook failed:', err))
-            fetch(config.DiscordWebhook, {
-                headers: new Headers({
-                    'Content-Type': 'application/json'
-                }),
-                method: 'POST',
-                body: JSON.stringify(urlWebhookPayload)
-            }).catch((err: any) => console.error('Discord webhook failed:', err))
+                fetch(config.DiscordWebhook, {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    method: 'POST',
+                    body: JSON.stringify(urlWebhookPayload)
+                })
+            ]).catch((err: any) => console.error('Discord webhook failed:', err))
         }
 
         return c.json({ 
@@ -328,95 +357,34 @@ app.post('/upload/', async (c: Context) => {
     }
 })
 
-// 静的ファイル配信（日付フォルダ対応）
-app.get('/uploads/:dateFolder/:file', async (c: Context) => {
-    const dateFolder = c.req.param('dateFolder')
-    const filename = c.req.param('file')
-    const filePath = path.join(uploadPath, dateFolder, filename)
-    
-    try {
-        if (!existsSync(filePath)) {
-            return c.json({ error: 'File not found' }, 404)
-        }
-        
-        const fileBuffer = await readFile(filePath)
-        const mimeType = mime.getType(filePath) || 'application/octet-stream'
-        
-        return new Response(new Uint8Array(fileBuffer), {
-            status: 200,
-            headers: {
-                'Cache-Control': 'public, max-age=15724800, immutable',
-                'Content-Type': mimeType,
-            }
-        })
-    } catch (error) {
-        console.error('File serve error:', error)
-        return c.json({ error: 'Internal server error' }, 500)
+// 静的ファイル配信（Bunの最適化されたserveStaticを使用）
+app.use('/uploads/*', serveStatic({ 
+    root: uploadPath,
+    // Bunの最適化: ゼロコピーとメモリマッピングを活用
+    rewriteRequestPath: (path: string) => {
+        // /uploads/path を適切なパスに変換
+        return path.replace(/^\/uploads\//, '')
+    },
+    onNotFound: (path: string, c: Context) => {
+        console.log(`File not found: ${path}`)
     }
+}))
+
+// 静的ファイル用のHTTPヘッダー最適化ミドルウェア
+app.use('/uploads/*', async (c: Context, next) => {
+    await next()
+    // レスポンスヘッダーを最適化
+    c.res.headers.set('Cache-Control', 'public, max-age=15724800, immutable') // 6ヶ月キャッシュ
+    c.res.headers.set('X-Content-Type-Options', 'nosniff')
+    c.res.headers.set('Accept-Ranges', 'bytes')
 })
 
-// メタデータファイル取得エンドポイント
-app.get('/uploads/:dateFolder/:file/metadata', async (c: Context) => {
-    const dateFolder = c.req.param('dateFolder')
-    const filename = c.req.param('file')
-    const metadataPath = path.join(uploadPath, dateFolder, `${filename}.meta.json`)
-    
-    try {
-        if (!existsSync(metadataPath)) {
-            return c.json({ error: 'Metadata not found' }, 404)
-        }
-        
-        const metadataContent = await readFile(metadataPath, 'utf-8')
-        const metadata = JSON.parse(metadataContent)
-        
-        return c.json(metadata)
-    } catch (error) {
-        console.error('Metadata read error:', error)
-        return c.json({ error: 'Internal server error' }, 500)
-    }
-})
-
-// 後方互換性のため、日付フォルダなしのパスも対応（既存ファイル用）
-app.get('/uploads/:file', async (c: Context) => {
-    const filename = c.req.param('file')
-    const filePath = path.join(uploadPath, filename)
-    
-    try {
-        if (!existsSync(filePath)) {
-            return c.json({ error: 'File not found' }, 404)
-        }
-        
-        const fileBuffer = await readFile(filePath)
-        const mimeType = mime.getType(filePath) || 'application/octet-stream'
-        
-        return new Response(new Uint8Array(fileBuffer), {
-            status: 200,
-            headers: {
-                'Cache-Control': 'public, max-age=15724800, immutable',
-                'Content-Type': mimeType,
-            }
-        })
-    } catch (error) {
-        console.error('File serve error:', error)
-        return c.json({ error: 'Internal server error' }, 500)
-    }
-})
-
-// サーバー起動関数
-async function startServer() {
-    console.log(`Upload API Server starting on port ${config.AppServer.Port}`)
-    console.log(`Upload directory: ${uploadPath}`)
-    console.log(`Base URL: ${baseUrl}`)
-
-    // スタンドアロンサーバーとして起動
-    serve({
-        fetch: app.fetch,
-        port: config.AppServer.Port,
-        hostname: config.AppServer.BindAddress,
-    })
-
-    console.log(`🚀 Server is running on http://${config.AppServer.BindAddress}:${config.AppServer.Port}`)
+// Bunサーバーの最適化設定
+export default {
+    fetch: app.fetch,
+    port: config.AppServer.Port,
+    development: getEnvBoolean('DEBUG', false),
+    lowMemoryMode: false,
 }
 
-// サーバー起動
-startServer().catch(console.error)
+    

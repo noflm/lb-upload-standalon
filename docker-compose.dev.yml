@@ -7,14 +7,10 @@ services:
     volumes:
       # アップロードファイルを永続化
       - ./uploads:/app/uploads
-      # ログを確認できるように（オプション）
-      - ./logs:/app/logs
       # ソースコードをマウント（開発用）
-      - ./server.ts:/app/server.ts
+      - ./src/server.ts:/app/src/server.ts
     environment:
-      NODE_ENV: "production"
       PORT: 30121
-      BIND_ADDRESS: "0.0.0.0"
       UPLOAD_PATH: "./uploads"
       MAX_FILE_SIZE_MB: 50
       DEBUG: false

@@ -24,7 +24,6 @@ RUN mkdir -p uploads
 
 # 環境変数のデフォルト値を設定
 ENV PORT=30121
-ENV BIND_ADDRESS=0.0.0.0
 ENV UPLOAD_PATH=./uploads
 ENV MAX_FILE_SIZE_MB=50
 
@@ -32,4 +31,4 @@ ENV MAX_FILE_SIZE_MB=50
 EXPOSE $PORT
 
 # Bunでサーバーを実行
-CMD ["bun", "run", "server.ts"]
+CMD ["bun", "run", "src/server.ts"]

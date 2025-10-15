@@ -10,9 +10,7 @@ services:
       # ログを確認できるように（オプション）
       - ./logs:/app/logs
     environment:
-      NODE_ENV: "production"
       PORT: 30121
-      BIND_ADDRESS: "0.0.0.0"
       UPLOAD_PATH: "./uploads"
       MAX_FILE_SIZE_MB: 50
       DEBUG: false

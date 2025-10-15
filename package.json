@@ -3,10 +3,10 @@
 	"version": "1.0.0",
 	"type": "module",
 	"scripts": {
-		"dev": "bun run server.ts",
-		"start": "bun run server.ts",
-		"build": "esbuild server.ts --bundle --platform=node --target=node14 --outfile=dist/index.js --external:@babel/preset-typescript/package.json --external:@babel/plugin-transform-modules-commonjs --external:@babel/plugin-proposal-export-namespace-from",
-		"watch": "pnpm build --watch",
+		"dev": "bun --hot src/server.ts",
+		"start": "bun src/server.ts",
+		"build": "bun build src/server.ts --target=bun --outfile=dist/index.js",
+		"check": "bun --bun tsc --noEmit",
 		"docker:build": "docker build -t lb-upload-standalone .",
 		"docker:run": "docker run -p 30121:30121 -v ./uploads:/app/uploads lb-upload-standalone",
 		"docker:up": "docker-compose up -d",
@@ -28,16 +28,13 @@
 	},
 	"homepage": "https://github.com/noflm/lb-upload-standalon#readme",
 	"dependencies": {
-		"@hono/node-server": "^1.19.5",
 		"hono": "^4.9.12",
-		"mime": "^4.1.0",
-		"node-fetch": "^3.3.2",
-		"typescript": "^5.9.3",
 		"uuid": "^9.0.1"
 	},
 	"devDependencies": {
-		"@types/node": "^20.19.21",
-		"@types/uuid": "^9.0.8"
+		"@types/bun": "^1.3.0",
+		"@types/uuid": "^9.0.8",
+		"typescript": "^5.9.3"
 	},
 	"prettier": {
 		"tabWidth": 4,

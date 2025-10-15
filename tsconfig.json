@@ -1,20 +1,19 @@
 {
 	"compilerOptions": {
-		"target": "ES2020",
-		"lib": ["ES2020", "DOM"],
+		"target": "ES2022",
+		"lib": ["ES2022"],
 		"module": "ESNext",
-		"moduleResolution": "node",
-		"types": ["node", "@citizenfx/server"],
-		"esModuleInterop": true,
-		"allowSyntheticDefaultImports": true,
+		"moduleResolution": "bundler",
+		"types": ["@types/bun"],
+		"allowImportingTsExtensions": true,
+		"noEmit": true,
 		"strict": true,
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true,
-		"declaration": false,
-		"outDir": "./dist",
-		"rootDir": "./",
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true,
 		"resolveJsonModule": true
 	},
-	"include": ["**/*.ts"],
+	"include": ["src/**/*.ts"],
 	"exclude": ["node_modules", "dist"]
 }

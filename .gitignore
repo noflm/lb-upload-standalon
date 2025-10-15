@@ -1,2 +1,7 @@
 uploads/*
 !uploads/.gitkeep
+node_modules/*
+.env
+bun.lock
+.DS_Store
+logs/*
