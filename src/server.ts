@@ -251,6 +251,7 @@ app.post('/upload/', async (c: Context) => {
         const buffer = new Uint8Array(await file.arrayBuffer())
         const clientMimeType = file.type
         const fileSize_bytes = file.size
+        const contentType = c.req.header('content-type')
 
         if (fileSize && fileSize_bytes > fileSize * MB) {
             return c.json({ error: 'File is too large' }, 413)
@@ -299,6 +300,8 @@ app.post('/upload/', async (c: Context) => {
                 }, 415)
             }
         }
+
+        console.log(`Upload - File: ${file.name || 'unknown'}, Size: ${fileSize_bytes} bytes, Client MIME: ${clientMimeType}, Content-Type Header: ${contentType}, Detected: ${actualMimeType} (.${extension})`)
 
         if (!extension || !buffer) {
             return c.json({ error: 'Invalid file type' }, 400)
