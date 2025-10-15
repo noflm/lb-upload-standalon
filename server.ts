@@ -242,24 +242,6 @@ app.post('/upload/', async (c: Context) => {
         // ファイルを保存（日付フォルダ内）
         await writeFile(path.join(dateFolderPath, filename), buffer)
 
-        // プレイヤーメタデータがある場合は、メタデータファイルも保存
-        if (playerMetadata) {
-            const metadataFilename = `${filename}.meta.json`
-            const metadataContent = {
-                uploadedAt: new Date().toISOString(),
-                originalFilename: file.name,
-                playerMetadata,
-                fileSize: buffer.length,
-                mimeType: mimetype,
-                dateFolder
-            }
-            
-            await writeFile(
-                path.join(dateFolderPath, metadataFilename), 
-                JSON.stringify(metadataContent, null, 2)
-            )
-        }
-
         // Discord webhookを送信（バックグラウンドで実行）
         if (config.DiscordWebhook) {
             let embedFields = [
@@ -313,7 +295,6 @@ app.post('/upload/', async (c: Context) => {
                 content: `${url}`
             }
 
-            // Fire and forget - don't await
             fetch(config.DiscordWebhook, {
                 headers: new Headers({
                     'Content-Type': 'application/json'
@@ -333,7 +314,7 @@ app.post('/upload/', async (c: Context) => {
         return c.json({ 
             success: true,
             filename,
-            url,
+            link: url,
             dateFolder,
             relativePath,
             size: buffer.length,
