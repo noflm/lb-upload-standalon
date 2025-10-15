@@ -257,26 +257,35 @@ app.post('/upload/', async (c: Context) => {
             return c.json({ error: 'File is too large' }, 413)
         }
 
-        // ファイル内容を解析して正確なMIMEタイプと拡張子を判定
-        const analysisResult = await analyzeFileContent(buffer)
-        
         let actualMimeType: string
         let extension: string
         
-        if (analysisResult) {
-            // ファイル解析結果を使用
-            actualMimeType = analysisResult.mimeType
-            extension = analysisResult.extension
+        // audio/oggの場合はバイパスしてそのまま使用
+        if (clientMimeType === 'audio/ogg') {
+            actualMimeType = 'audio/ogg'
+            extension = 'ogg'
+            console.log(`Bypassing file analysis for audio/ogg - keeping original type`)
         } else {
-            // フォールバック: クライアント提供のMIMEタイプを使用
-            actualMimeType = clientMimeType
-            const fallbackExtension = getFileExtensionFromMime(clientMimeType)
+            // ファイル内容を解析して正確なMIMEタイプと拡張子を判定
+            const analysisResult = await analyzeFileContent(buffer)
             
-            if (!fallbackExtension) {
-                return c.json({ error: 'Unsupported file type' }, 400)
+            if (analysisResult) {
+                // ファイル解析結果を使用
+                actualMimeType = analysisResult.mimeType
+                extension = analysisResult.extension
+                console.log(`File analysis result - Detected: ${actualMimeType} (.${extension})`)
+            } else {
+                // フォールバック: クライアント提供のMIMEタイプを使用
+                actualMimeType = clientMimeType
+                const fallbackExtension = getFileExtensionFromMime(clientMimeType)
+                
+                if (!fallbackExtension) {
+                    return c.json({ error: 'Unsupported file type' }, 400)
+                }
+                
+                extension = fallbackExtension
+                console.log(`Using fallback - Client MIME: ${actualMimeType} (.${extension})`)
             }
-            
-            extension = fallbackExtension
         }
 
         // MIMEタイプの検証（解析結果またはクライアント提供の値で検証）
@@ -300,8 +309,6 @@ app.post('/upload/', async (c: Context) => {
                 }, 415)
             }
         }
-
-        console.log(`Upload - File: ${file.name || 'unknown'}, Size: ${fileSize_bytes} bytes, Client MIME: ${clientMimeType}, Content-Type Header: ${contentType}, Detected: ${actualMimeType} (.${extension})`)
 
         if (!extension || !buffer) {
             return c.json({ error: 'Invalid file type' }, 400)
