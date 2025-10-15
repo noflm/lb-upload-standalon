@@ -178,7 +178,7 @@ app.get('/health', (c: Context) => {
     return c.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-app.post('/upload/', async (c: Context) => {
+app.post('/lb-upload/', async (c: Context) => {
     try {
         const body = await c.req.parseBody()
         const file = body['file'] as File
