@@ -3,8 +3,8 @@ import { logger } from 'hono/logger'
 import { etag } from 'hono/etag'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/bun'
-import { join } from 'path'
 import { v4 as uuid } from 'uuid'
+import { fileTypeFromBuffer } from 'file-type'
 
 
 const getEnv = (key: string, defaultValue: string = ''): string => {
@@ -44,8 +44,35 @@ const bunFile = {
     }
 }
 
-// MIME処理
+// ファイル解析とMIME処理
+interface FileAnalysisResult {
+    mimeType: string
+    extension: string
+}
+
+async function analyzeFileContent(buffer: Uint8Array): Promise<FileAnalysisResult | null> {
+    try {
+        const fileType = await fileTypeFromBuffer(buffer)
+        if (fileType) {
+            return {
+                mimeType: fileType.mime,
+                extension: fileType.ext
+            }
+        }
+    } catch (error) {
+        console.error('File type detection failed:', error)
+    }
+    
+    return null
+}
+
+
+
+// 従来のMIME処理（フォールバック用）
 function getFileExtensionFromMime(mimeType: string): string | null {
+    // コーデック情報を含むMIMEタイプを正規化
+    const normalizedMimeType = mimeType.split(';')[0].trim()
+    
     const mimeMap: Record<string, string> = {
         'audio/mpeg': 'mp3',
         'audio/ogg': 'ogg',
@@ -61,7 +88,8 @@ function getFileExtensionFromMime(mimeType: string): string | null {
         'image/webp': 'webp',
         'image/gif': 'gif'
     }
-    return mimeMap[mimeType] || null
+    
+    return mimeMap[normalizedMimeType] || null
 }
 
 
@@ -133,6 +161,10 @@ const config: Config = {
             'video/webm',
             'video/mpeg',
             'video/ogg',
+            // VP9コーデック対応
+            'video/webm; codecs="vp9"',
+            'video/mp4; codecs="vp09"',
+            'video/mp4; codecs="vp9"',
             'image/jpeg',
             'image/png',
             'image/webp',
@@ -217,19 +249,56 @@ app.post('/upload/', async (c: Context) => {
 
         // ファイルの内容とメタデータを取得
         const buffer = new Uint8Array(await file.arrayBuffer())
-        const mimetype = file.type
+        const clientMimeType = file.type
         const fileSize_bytes = file.size
-
-        if (mimes && !mimes.includes(mimetype)) {
-            return c.json({ error: 'Unallowed mime type' }, 415)
-        }
 
         if (fileSize && fileSize_bytes > fileSize * MB) {
             return c.json({ error: 'File is too large' }, 413)
         }
 
-        // BunネイティブのMIME処理
-        const extension = getFileExtensionFromMime(mimetype)
+        // ファイル内容を解析して正確なMIMEタイプと拡張子を判定
+        const analysisResult = await analyzeFileContent(buffer)
+        
+        let actualMimeType: string
+        let extension: string
+        
+        if (analysisResult) {
+            // ファイル解析結果を使用
+            actualMimeType = analysisResult.mimeType
+            extension = analysisResult.extension
+        } else {
+            // フォールバック: クライアント提供のMIMEタイプを使用
+            actualMimeType = clientMimeType
+            const fallbackExtension = getFileExtensionFromMime(clientMimeType)
+            
+            if (!fallbackExtension) {
+                return c.json({ error: 'Unsupported file type' }, 400)
+            }
+            
+            extension = fallbackExtension
+        }
+
+        // MIMEタイプの検証（解析結果またはクライアント提供の値で検証）
+        if (mimes && mimes.length > 0) {
+            const isAllowed = mimes.some(allowedMime => {
+                // 完全一致をチェック
+                if (allowedMime === actualMimeType) return true
+                
+                // ベースMIMEタイプが一致するかチェック（コーデック情報を除く）
+                const baseMimeType = actualMimeType.split(';')[0].trim()
+                const allowedBaseMimeType = allowedMime.split(';')[0].trim()
+                
+                return baseMimeType === allowedBaseMimeType
+            })
+            
+            if (!isAllowed) {
+                return c.json({ 
+                    error: 'Unallowed file type',
+                    detectedType: actualMimeType,
+                    clientType: clientMimeType
+                }, 415)
+            }
+        }
 
         if (!extension || !buffer) {
             return c.json({ error: 'Invalid file type' }, 400)
@@ -287,7 +356,7 @@ app.post('/upload/', async (c: Context) => {
                 },
                 {
                     name: "MIME Type",
-                    value: mimetype,
+                    value: actualMimeType,
                     inline: false,
                 },
             ]
@@ -320,7 +389,7 @@ app.post('/upload/', async (c: Context) => {
                 content: `${url}`
             }
 
-            // Bunの並行処理を活用してwebhookを同時送信（Bunネイティブfetch）
+            // webhookを同時送信
             Promise.all([
                 fetch(config.DiscordWebhook, {
                     headers: {
@@ -346,7 +415,9 @@ app.post('/upload/', async (c: Context) => {
             dateFolder,
             relativePath,
             size: buffer.length,
-            type: mimetype,
+            type: actualMimeType,
+            clientType: clientMimeType,
+            mimeTypeChanged: clientMimeType !== actualMimeType,
             playerMetadata: playerMetadata || undefined
         })
 

@@ -28,6 +28,7 @@
 	},
 	"homepage": "https://github.com/noflm/lb-upload-standalon#readme",
 	"dependencies": {
+		"file-type": "^21.0.0",
 		"hono": "^4.9.12",
 		"uuid": "^9.0.1"
 	},
