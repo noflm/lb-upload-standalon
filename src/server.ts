@@ -50,7 +50,7 @@ function getFileExtensionFromMime(mimeType: string): string | null {
         'audio/mpeg': 'mp3',
         'audio/ogg': 'ogg',
         'audio/opus': 'opus',
-        'audio/webm': 'webm',
+        'audio/webm': 'weba',
         'audio/wav': 'wav',
         'video/mp4': 'mp4',
         'video/webm': 'webm',
@@ -63,7 +63,6 @@ function getFileExtensionFromMime(mimeType: string): string | null {
     }
     return mimeMap[mimeType] || null
 }
-
 
 
 const app = new Hono()
@@ -111,7 +110,6 @@ type Config = {
     },
     AppServer: {
         Port: number
-        BindAddress: string
     }
 }
 
@@ -130,18 +128,19 @@ const config: Config = {
             'audio/ogg',
             'audio/opus',
             'audio/webm',
+            'audio/wav',
             'video/mp4',
             'video/webm',
             'video/mpeg',
             'video/ogg',
             'image/jpeg',
             'image/png',
-            'image/webp'
+            'image/webp',
+            'image/gif'
         ])
     },
     AppServer: {
         Port: getEnvNumber('PORT', 30121),
-        BindAddress: getEnv('BIND_ADDRESS', '0.0.0.0')
     }
 }
 
