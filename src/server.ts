@@ -359,13 +359,9 @@ app.post('/upload/', async (c: Context) => {
 // 静的ファイル配信
 app.get('/uploads/*', serveStatic({ 
     root: uploadPath,
-    // Bunの最適化: ゼロコピーとメモリマッピングを活用
     rewriteRequestPath: (path: string) => {
         // /uploads/path を適切なパスに変換
         return path.replace(/^\/uploads\//, '')
-    },
-    onNotFound: (path: string, c: Context) => {
-        console.log(`File not found: ${path}`)
     }
 }))
 
