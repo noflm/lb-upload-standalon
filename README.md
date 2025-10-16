@@ -304,7 +304,52 @@ bun run check
 
 ## FiveM統合
 
-このサーバーはFiveMリソースとしても利用可能です。プレイヤーメタデータを `player-metadata` ヘッダーに含めることで、アップロード履歴にプレイヤー情報を記録できます。
+### lb-phoneでの設定方法
+
+lb-phoneでこのアップロードサーバーを使用する場合の設定例：
+
+#### 1. アップロード設定ファイルの編集
+
+`resources/lb-phone/shared/upload.lua` を編集：
+
+```lua
+UploadMethods = {
+    Custom = {
+        Default = {
+            url = "https://[BASE_URL]/upload/",
+            field = "file",
+            headers = {
+                ["Authorization"] = "API_KEY" -- API_KEYを設定している場合
+            },
+            error = {
+                path = "success",
+                value = false
+            },
+            success = {
+                path = "link"
+            },
+            sendPlayer = "metadata"
+        },
+    },
+}
+```
+
+#### 2. メイン設定ファイルの編集
+
+`resources/lb-phone/config/config.lua` を編集：
+
+```lua
+Config.UploadMethod = {}
+-- カスタムアップロードメソッドを使用
+Config.UploadMethod.Video = "Custom" -- 動画ファイル用
+Config.UploadMethod.Image = "Custom" -- 画像ファイル用  
+Config.UploadMethod.Audio = "Custom" -- 音声ファイル用
+```
+
+#### 設定のポイント
+
+- **BASE_URL**: あなたのサーバーのURLに置き換えてください
+- **API_KEY**: 環境変数でAPI_KEYを設定している場合は、そのキーを入力
 
 ## ライセンス
 
