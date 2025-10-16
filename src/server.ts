@@ -399,23 +399,26 @@ app.post('/upload/', async (c: Context) => {
                 content: `${url}`
             }
 
-            // webhookを同時送信
-            Promise.all([
-                fetch(config.DiscordWebhook, {
+            // webhookを順次送信
+            try {
+                await fetch(config.DiscordWebhook, {
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     method: 'POST',
                     body: JSON.stringify(embedWebhookPayload)
-                }),
-                fetch(config.DiscordWebhook, {
+                })
+                
+                await fetch(config.DiscordWebhook, {
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     method: 'POST',
                     body: JSON.stringify(urlWebhookPayload)
                 })
-            ]).catch((err: any) => console.error('Discord webhook failed:', err))
+            } catch (err: any) {
+                console.error('Discord webhook failed:', err)
+            }
         }
 
         return c.json({ 
