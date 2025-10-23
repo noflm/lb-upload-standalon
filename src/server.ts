@@ -440,6 +440,44 @@ app.post('/upload/', async (c: Context) => {
     }
 })
 
+// UUIDファイル名からフルパスへのリダイレクト処理
+app.get('/uploads/:filename', async (c: Context) => {
+    const filename = c.req.param('filename')
+    
+    // ファイル名のパターンをチェック（UUID形式）
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$/i
+    if (!uuidPattern.test(filename)) {
+        // UUID形式でない場合は次のハンドラーへ
+        return c.notFound()
+    }
+    
+    // uploadsディレクトリ内の日付フォルダを走査
+    try {
+        const uploadsDir = uploadPath
+        const entries = await Array.fromAsync(new Bun.Glob('*').scan({ cwd: uploadsDir, onlyFiles: false }))
+        
+        for (const entry of entries) {
+            // 日付フォルダのパターンをチェック（YYYY-MM-DD形式）
+            const dateFolderPattern = /^\d{4}-\d{2}-\d{2}$/
+            if (!dateFolderPattern.test(entry)) continue
+            
+            // ファイルが存在するかチェック
+            const filePath = `${uploadsDir}/${entry}/${filename}`
+            if (await bunFile.exists(filePath)) {
+                // リダイレクト先のURIを構築
+                const redirectUri = `/uploads/${entry}/${filename}`
+                return c.redirect(redirectUri, 301) // 永続的リダイレクト
+            }
+        }
+        
+        // ファイルが見つからない場合
+        return c.json({ error: 'File not found' }, 404)
+    } catch (error) {
+        console.error('Error searching for file:', error)
+        return c.json({ error: 'Internal server error' }, 500)
+    }
+})
+
 // 静的ファイル配信
 app.get('/uploads/*', serveStatic({ 
     root: uploadPath,
