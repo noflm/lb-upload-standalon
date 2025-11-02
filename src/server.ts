@@ -3,6 +3,7 @@ import { logger } from 'hono/logger'
 import { etag } from 'hono/etag'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/bun'
+import { appendTrailingSlash } from 'hono/trailing-slash'
 import { v4 as uuid } from 'uuid'
 import { fileTypeFromBuffer } from 'file-type'
 
@@ -93,7 +94,9 @@ function getFileExtensionFromMime(mimeType: string): string | null {
 }
 
 
-const app = new Hono()
+const app = new Hono({ strict: true })
+
+app.use(appendTrailingSlash())
 
 // ミドルウェアの設定
 // カスタムログフォーマット
